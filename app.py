@@ -12,20 +12,20 @@ def qcloud_v3_post(SecretId,SecretKey,Service,bodyArray,headersArray):
     HTTPRequestMethod = "POST"
     CanonicalURI = "/"
     CanonicalQueryString = ""
-    
+    # 按 ASCII 升序进行排序
     headersArray = dict(sorted(headersArray.items(), key=lambda x: x[0]))
     sortHeadersArray = headersArray
     
     SignedHeaders = ""
     CanonicalHeaders = ""
     
-    
+    # 拼接键
     for key in list(sortHeadersArray.keys()):
         SignedHeaders += key.lower() + ";"
     if SignedHeaders[-1] == ";":
         SignedHeaders = SignedHeaders[:-1]
     
-    
+    # 拼接键
     for key in list(sortHeadersArray.keys()):
         CanonicalHeaders += key.lower() + ":" + sortHeadersArray[key].lower() + "\n"
     
@@ -36,15 +36,15 @@ def qcloud_v3_post(SecretId,SecretKey,Service,bodyArray,headersArray):
     CanonicalRequest = HTTPRequestMethod + "\n" + CanonicalURI + "\n" + CanonicalQueryString + "\n" + CanonicalHeaders + "\n" + SignedHeaders + "\n" + HashedRequestPayload
     
     
-    
+    # 时间戳
     RequestTimestamp = str(int(time.time()))
-    
+    # 获取年月日
     formattedDate = time.strftime("%Y-%m-%d", time.gmtime(int(RequestTimestamp)))
     Algorithm = "TC3-HMAC-SHA256"
     CredentialScope = formattedDate + "/" + Service + "/tc3_request"
     HashedCanonicalRequest = hashlib.sha256(bytes(CanonicalRequest,encoding="utf-8")).hexdigest()
     
-    
+    # ------
     
     StringToSign = Algorithm + "\n" + RequestTimestamp + "\n" + CredentialScope + "\n" + HashedCanonicalRequest
     
@@ -86,36 +86,32 @@ template = {
     "DO":"DO"
 }
 
+kv_joint__list = ["DO"]
 
+# 初始化摄像头
 cap = cv2.VideoCapture(0)
 
-
+# 创建主窗口
 root = Tk()
 root.title("OCR入库辅助工具")
 root.geometry("1000x400")
 
-
-
-
-
-
-
-
+# 创建一个Label用于显示摄像头画面
 label = Label(root, width=450)
-label.pack(side="left", fill="both", expand=True, padx=10, pady=10)  
+label.pack(side="left", fill="both", expand=True, padx=10, pady=10)  # 将Label放在窗口左侧
 
-
+# 创建右侧框架
 right_frame = Label(root)
 right_frame.pack(side="right", fill="both", expand=True, padx=10, pady=10)
 
-
+# 在右侧框架添加表单标题
 Label(right_frame, text="物料OCR结果").pack()
 
-
+# 创建一个表单框架来组织标签和输入框
 form_frame = Frame(right_frame)
 form_frame.pack()
 
-
+# 定义一个函数来创建标签和输入框对
 def create_label_entry(parent, label_text,value):
     frame = Frame(parent)
     frame.pack(anchor="w", fill="x", pady=(0, 5))
@@ -127,27 +123,27 @@ kv_dict = {}
 for i in template.keys():
     kv_dict[template[i]] = ""
 
-
+# 初始化 StringVar 对象并设置初始值（都是空字符串）
 vars_dict = {field: StringVar(value="") for field in kv_dict}
 
-
+# 创建姓名标签和输入框
 for la in template.keys():
     create_label_entry(form_frame, la, vars_dict[template[la]])
 
-
+# 创建一个Button用于拍摄
 def take_photo():
     image_filename = str(int(time.time()*1000)) + ".jpg"
-    ret, frame = cap.read()  
+    ret, frame = cap.read()  # 读取摄像头的一帧
     if ret:
-        
+        # 将OpenCV的BGR格式转换为RGB格式
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
+        # 使用PIL将图像转换为PhotoImage对象
         img = Image.fromarray(frame)
         imgtk = ImageTk.PhotoImage(image=img)
-        
+        # 更新Label显示的图片
         label.imgtk = imgtk
         label.configure(image=imgtk)
-        
+        # 保存图片到文件
         cv2.imwrite(image_filename, frame)
         return image_filename
     else:
@@ -179,21 +175,17 @@ def ocr(file_name:str):
     with open("k.json", 'w+',encoding="utf-8") as f:
         f.write(r.text)
 
-result_data = {}
-
 def format_d(dat):
-    global result_data
+    global kv_joint__list, kv_dict
     li = dat["Response"]["StructuralList"]
     for ii in li:
         ke = ii["Groups"][0]["Lines"][0]["Key"]["AutoName"]
         va = ii["Groups"][0]["Lines"][0]["Value"]["AutoContent"]
-        if ke == "DO":
+        if ke in kv_joint__list:
             va = ke + va
-        
         vars_dict[template[ke]].set(va)
     
-    global kv_dict
-    
+    # 使用字典推导式从 StringVar 对象获取值并更新 kv_dict
     kv_dict = {key: var.get() for key, var in vars_dict.items()}
     print(kv_dict)
 
@@ -202,59 +194,59 @@ def try_ocr():
     if not filename:
         return
     print("-> 图片保存成功")
-    print(ocr("63e3a7b35329592e421fd308b7b7265.jpg"))
+    print(ocr(filename))
     with open("k.json","r",encoding="utf-8") as f:
         format_d(json.load(f))
 
 def upload_data():
     global kv_dict
-    
+    # 使用字典推导式从 StringVar 对象获取值并更新 kv_dict
     kv_dict = {key: var.get() for key, var in vars_dict.items()}
 
     print(kv_dict)
 
-    
+    # 这里对接的接口
 
 def print_tag():
-    global result_data
-    
+    global kv_dict
+    # 这里对接的接口
     tag_id = "xxxxxx"
-    result_data["tag_id"] = tag_id
+    kv_dict["tag_id"] = tag_id
 
-
-
+# 提交按钮
+# 创建一个按钮框架
 button_frame = Frame(right_frame)
 button_frame.pack(pady=10)
 
-
+# 提交按钮
 submit_button = Button(button_frame, text="OCR", command=try_ocr)
 submit_button.pack(side="left", padx=5)
 
-
+# 打印入库标按钮
 print_button = Button(button_frame, text="打印入库标", command=print_tag)
 print_button.pack(side="left", padx=5)
 
-
+# 提交入库记录按钮
 submit_record_button = Button(button_frame, text="提交入库记录", command=upload_data)
 submit_record_button.pack(side="left", padx=5)
 
-
+# 定义更新摄像头画面的函数
 def update_frame():
     """更新摄像头画面"""
-    ret, frame = cap.read()  
+    ret, frame = cap.read()  # 读取摄像头的一帧
     if ret:
-        
+        # 将OpenCV的BGR格式转换为RGB格式
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
+        # 使用PIL将图像转换为PhotoImage对象
         img = Image.fromarray(frame)
         imgtk = ImageTk.PhotoImage(image=img)
-        
+        # 更新Label显示的图片
         label.imgtk = imgtk
         label.configure(image=imgtk)
-    
+    # 每隔30毫秒调用一次update_frame函数，实现实时更新
     root.after(30, update_frame)
 
 update_frame()
 
-
+# 运行主循环
 root.mainloop()
