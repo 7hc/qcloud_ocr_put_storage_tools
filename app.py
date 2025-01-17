@@ -37,7 +37,6 @@ def qcloud_v3_post(SecretId,SecretKey,Service,bodyArray,headersArray):
     
     
     
-    
     RequestTimestamp = str(int(time.time()))
     
     formattedDate = time.strftime("%Y-%m-%d", time.gmtime(int(RequestTimestamp)))
@@ -71,6 +70,22 @@ def qcloud_v3_post(SecretId,SecretKey,Service,bodyArray,headersArray):
     
     return headersArray
 
+SecretId = ""
+SecretKey = ""
+
+template = {
+    "制造商零件编号(MPN)":"MPN",
+    "描述(DESC)":"DESC",
+    "制造商(MFG)":"MFG",
+    "原产地(CoO)":"COO",
+    "销售订单号(SO)":"SO",
+    "数量(QTY)":"QTY",
+    "库位(LOC)":"LOC",
+    "LPN":"LPN",
+    "LPN总数":"LPN_Count",
+    "DO":"DO"
+}
+
 
 cap = cv2.VideoCapture(0)
 
@@ -100,24 +115,6 @@ Label(right_frame, text="物料OCR结果").pack()
 form_frame = Frame(right_frame)
 form_frame.pack()
 
-class entry_info(BaseModel):
-    MPN:str = ""
-    MFG:str = ""
-    COO:str = ""
-    SO:str = ""
-    QTY:str = ""
-    LPN:str = ""
-    sub_order:str = ""
-
-ei = entry_info()
-
-
-vars_dict = {}
-
-
-for field in ei.__fields__:
-    vars_dict[field] = StringVar(value=ei.__fields__[field].default)
-
 
 def create_label_entry(parent, label_text,value):
     frame = Frame(parent)
@@ -125,15 +122,17 @@ def create_label_entry(parent, label_text,value):
     Label(frame, text=label_text, anchor="e", width=20).pack(side="left")
     Entry(frame, textvariable=value).pack(side="left", fill="x", expand=True)
 
+kv_dict = {}
+
+for i in template.keys():
+    kv_dict[template[i]] = ""
 
 
-create_label_entry(form_frame, "制造商零件编号(MPN):", vars_dict['MPN'])
-create_label_entry(form_frame, "制造商(MFG):", vars_dict['MFG'])
-create_label_entry(form_frame, "原产地(CoO):", vars_dict['COO'])
-create_label_entry(form_frame, "销售订单号(SO):", vars_dict['SO'])
-create_label_entry(form_frame, "数量(QTY):", vars_dict['QTY'])
-create_label_entry(form_frame, "LPN:", vars_dict['LPN'])
-create_label_entry(form_frame, "分单号:", vars_dict['sub_order'])
+vars_dict = {field: StringVar(value="") for field in kv_dict}
+
+
+for la in template.keys():
+    create_label_entry(form_frame, la, vars_dict[template[la]])
 
 
 def take_photo():
@@ -155,23 +154,23 @@ def take_photo():
         return None
 
 def ocr(file_name:str):
+    global template,SecretId,SecretKey
+
     with open(file_name, "rb") as f:
         image_data = f.read()
     data = {
         "ImageBase64": base64.b64encode(image_data).decode(),
         "EnableCoord": False,
         "ConfigId": "General",
-        "ItemNames": ["制造商零件编号(MPN)","描述(DESC)","制造商(MFG)","原产地(CoO)","销售订单号(SO)","数量(QTY)","库位(LOC)","LPN","LPN总数","DO"]
+        "ItemNames": list(template.keys()),
     }
     host = "ocr.tencentcloudapi.com"
-    SecretId = ""
-    SecretKey = ""
     headersArray = {
-    'Host': host,
-    'Content-Type': 'application/json',
-    'X-TC-Action': 'SmartStructuralPro',
-    'X-TC-Version': '2018-11-19',
-    'X-TC-Region': 'ap-guangzhou',
+        'Host': host,
+        'Content-Type': 'application/json',
+        'X-TC-Action': 'SmartStructuralPro',
+        'X-TC-Version': '2018-11-19',
+        'X-TC-Region': 'ap-guangzhou',
     }
     Service = "ocr"
     headersPending = qcloud_v3_post(SecretId,SecretKey,Service,data,headersArray)
@@ -179,7 +178,6 @@ def ocr(file_name:str):
     r = requests.post(apiurl, json=data, headers=headersPending)
     with open("k.json", 'w+',encoding="utf-8") as f:
         f.write(r.text)
-    
 
 result_data = {}
 
@@ -192,40 +190,28 @@ def format_d(dat):
         if ke == "DO":
             va = ke + va
         
-        if ke.find("LPN") != -1:
-            vars_dict["LPN"].set(va)
-        elif ke.find("MPN") != -1:
-            vars_dict["MPN"].set(va)
-        elif ke.find("MFG") != -1:
-            vars_dict["MFG"].set(va)
-        elif ke.find("CoO") != -1:
-            vars_dict["COO"].set(va)
-        elif ke.find("SO") != -1:
-            vars_dict["SO"].set(va)
-        elif ke.find("QTY") != -1:
-            vars_dict["QTY"].set(va)
-        elif ke.find("DO") != -1:
-            vars_dict["sub_order"].set(va)
+        vars_dict[template[ke]].set(va)
     
-    global ei
+    global kv_dict
     
-    ei_dict = {key: var.get() for key, var in vars_dict.items()}
-    ei = entry_info(**ei_dict)  
-    print(ei.__dict__)
-    result_data = ei.__dict__
+    kv_dict = {key: var.get() for key, var in vars_dict.items()}
+    print(kv_dict)
 
 def try_ocr():
     filename = take_photo()
     if not filename:
         return
     print("-> 图片保存成功")
-    print(ocr(filename))
+    print(ocr("63e3a7b35329592e421fd308b7b7265.jpg"))
     with open("k.json","r",encoding="utf-8") as f:
         format_d(json.load(f))
 
 def upload_data():
-    global result_data
-    print(result_data)
+    global kv_dict
+    
+    kv_dict = {key: var.get() for key, var in vars_dict.items()}
+
+    print(kv_dict)
 
     
 
